@@ -65,17 +65,17 @@ https://raw.githubusercontent.com/kayanouriko/quantumultx-skland-auto-sign/main/
 | :--------------------------------: |
 | 保证重写列表的为打开状态<br>task-7 |
 
-|     ![](./assets/rewrite-1.PNG)     |
+|     ![](./assets/rewrite-1.png)     |
 | :---------------------------------: |
 | 保证MitM功能为打开状态<br>rewrite-1 |
 
-|                  ![](./assets/rewrite-2.PNG)                  |
+|                  ![](./assets/rewrite-2.png)                  |
 | :-----------------------------------------------------------: |
-| 打开森空岛 app, 此时会连续弹出两条获取成功的通知<br>rewrite-3 |
+| 打开森空岛 app, 此时会连续弹出两条获取成功的通知<br>rewrite-2 |
 
 * 注2: 如果之前你的森空岛 app 是处于后台开启状态, 需要清除后台, 重新打开森空岛 app 才能收到获取成功的通知.
 
-| ![](./assets/rewrite-3.PNG) |
+| ![](./assets/rewrite-3.png) |
 | :-------------------------: |
 |  取消打勾操作<br>rewrite-3  |
 
