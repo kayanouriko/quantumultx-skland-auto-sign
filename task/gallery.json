@@ -3,7 +3,7 @@
     "description": "森空岛小助手的任务仓库 by kayanouriko",
     "task": [
         {
-            "config": "0 6 * * * https://raw.githubusercontent.com/kayanouriko/quantumultx-skland-auto-sign/main/src/skland-auto-sign.js, tag=森空岛小助手, img-url=https://raw.githubusercontent.com/kayanouriko/quantumultx-skland-auto-sign/main/assets/logo.png, enabled=false",
+            "config": "0 6 * * * https://raw.githubusercontent.com/kayanouriko/quantumultx-skland-auto-sign/main/src/skland-auto-sign.js, tag=森空岛小助手, img-url=https://raw.githubusercontent.com/kayanouriko/quantumultx-skland-auto-sign/main/assets/gallery-icon.png, enabled=false",
             "addons": "https://raw.githubusercontent.com/kayanouriko/quantumultx-skland-auto-sign/main/task/skland.conf, tag=配置森空岛小助手"
         }
     ]
