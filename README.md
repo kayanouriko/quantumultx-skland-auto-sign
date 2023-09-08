@@ -49,11 +49,11 @@
 https://raw.githubusercontent.com/kayanouriko/quantumultx-skland-auto-sign/main/task/gallery.json
 ```
 
-|                        ![](./assets/task-5.PNG)                         |
+|                        ![](./assets/task-5.png)                         |
 | :---------------------------------------------------------------------: |
 | 点击森空岛小助手, 在弹出的 sheet 中分别选择添加和添加附加组件<br>task-5 |
 
-|  ![](./assets/task-6.PNG)<br>![](./assets/task-7.PNG)   |
+|  ![](./assets/task-6.png)<br>![](./assets/task-7.png)   |
 | :-----------------------------------------------------: |
 | 请求列表和重写列表如图所示即为添加成功<br>task-6 task-7 |
 
