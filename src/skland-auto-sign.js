@@ -34,7 +34,7 @@ async function main() {
         // 先获取存储的 key
         const cred = $prefs.valueForKey(CRED_KEY)
         const userInfo = $prefs.valueForKey(UID_KEY)
-        if (!cred || !uid) {
+        if (!cred || !userInfo) {
             // 还没有获取 cred uid, 通知并退出
             throw new Error(msgText.cookie.empty)
         }
@@ -73,7 +73,6 @@ function fetch(cred, uid) {
         }
         $task.fetch(request).then(
             response => {
-                console.log(JSON.stringify(response.body))
                 const { code, message, data } = JSON.parse(response.body)
                 if (code === CODE_SUCCESS) {
                     const awardName = data['awards'][0]['resource']['name']
