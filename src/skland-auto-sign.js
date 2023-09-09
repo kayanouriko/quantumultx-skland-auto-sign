@@ -42,7 +42,7 @@ async function main() {
         // 开始签到
         const { awardName, count } = await fetch(cred, uid)
         // 请求成功
-        $notify('森空岛小助手', '', `签到成功! ${name} 获得了奖励(${count}x${awardName}).`)
+        $notify('森空岛小助手', '', `签到成功! Dr.${name} 获得了奖励(${awardName}x${count}).`)
     } catch (error) {
         const message = error.message ?? error
         if (message === msgText.cookie.empty) {
