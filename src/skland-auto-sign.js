@@ -1,10 +1,11 @@
 /**
  * @name 森空岛小助手
- * @version v1.0.0
+ * @version v1.1.0
  * @description 每天定时自动签到森空岛获取明日方舟游戏奖励
  * @author kayanouriko <kayanoruiko@icloud.com>
  * @homepage https://github.com/kayanouriko/
  * @license MIT
+ * @tanks https://github.com/enpitsuLin/skland-daily-attendance
  */
 
 /**
@@ -20,7 +21,8 @@ const UID_KEY = 'cc.kayanouriko.skland.uid'
 
 const msgText = {
     cookie: {
-        empty: '请先打开该脚本配套的重写规则更新后获取 cred 和 uid, 再重新运行该脚本. 点击该通知将跳转获取 cred 和 uid 的教程页面.'
+        empty: '请先打开该脚本配套的重写规则更新后获取 cred 和 uid, 再重新运行该脚本. 点击该通知将跳转获取 cred 和 uid 的教程页面.',
+        cred: '获取 cred 失败, 请将重写模块更新到 1.1.0 版本重新进入森空岛获取 cred.'
     },
     sign: {
         unknown: '签到成功, 但是没有获取到奖励详情.'
@@ -60,9 +62,19 @@ async function main() {
 
 function fetch(cred, uid) {
     return new Promise((resolve, reject) => {
-        const headers = JSON.parse(cred)
+        // 模仿旧版本参数签到
+        // https://github.com/enpitsuLin/skland-daily-attendance
+        const json = JSON.parse(cred)
+        const headers = {
+            cred: json.cred,
+            'User-Agent': 'Skland/1.0.1 (com.hypergryph.skland; build:100001014; Android 31; ) Okhttp/4.11.0',
+            'Accept-Encoding': 'gzip',
+            Connection: 'close',
+            platform: '1',
+            'Content-Type': 'application/json; charset=utf-8'
+        }
         const data = {
-            uid,
+            uid: `${uid}`,
             gameId: 1
         }
         const request = {
