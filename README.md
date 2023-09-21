@@ -1,7 +1,7 @@
 ![](./assets/logo.png)
 # 森空岛小助手
 
-![platform](https://img.shields.io/badge/platform-quantumultx-lightgrey.svg) ![](https://img.shields.io/badge/release-1.1.0-blue)
+![platform](https://img.shields.io/badge/platform-quantumultx-lightgrey.svg) ![](https://img.shields.io/badge/release-1.2.0-blue)
 
 一个 quantumultx 脚本, 主要用于森空岛游戏签到的自动运行.
 
@@ -15,7 +15,20 @@
 
 ## 更新日志
 
+* v1.2.0(20230921) 破坏性更新
+    
+    1. [新增] 支持森空岛账号绑定的所有明日方舟游戏角色进行签到.
+    2. [修复] B服账号无法签到.
+    3. [修复] 修正请求逻辑, 使用最新的鹰角签名请求头算法进行请求. [来自 @sklandplus](https://github.com/sklandplus/sklandplus)
+    4. [BUG] 这版自动签到后有概率森空岛 app 需要重新登录, 不过 app 有一键登录功能, 也不算大问题, 找重写接口参数眼睛都找花了, 暂时先这样吧.
+
+> 该版本需要同时更新脚本主体和重写列表, 并且需要重新获取必要参数, 详细请见下列 task-8 task-9 图例(如何更新), rewrite-2 图例(如何获取必要参数)
+
+<details>
+<summary>历史更新日志</summary>
+
 * v1.1.0(20230919)
+
     1. [脚本主体] 针对 yj 新增验证做出的临时修复. [@感谢参考逻辑](https://github.com/enpitsuLin/skland-daily-attendance)
 
 > 森空岛昨天追加了加密签名, 目前临时修复了, 基本是模拟旧版本接口的参数. 
@@ -23,9 +36,6 @@
 > 等新版 app 全面升级后, 这方法估计很快就失效了. 能用一天是一天吧.
 >
 > 只能期待后续等新版安卓包释出后有大佬反编译出算法, 还有 yj 不要给签到接口加上 CAPTCHA 验证.
-
-<details>
-<summary>历史更新日志</summary>
 
 * v1.0.0(20230908)    
     1. 初版 🎉
@@ -87,3 +97,9 @@ https://raw.githubusercontent.com/kayanouriko/quantumultx-skland-auto-sign/main/
 |  取消打勾操作<br>rewrite-3  |
 
 ### 至此, 脚本可以运行了.
+
+## 感谢
+
+1. [sklandplus](https://github.com/sklandplus/sklandplus) 森空岛 社区(非官方) 工具库 TypeScript Monorepo
+2. [JavaScript-MD5](https://github.com/blueimp/JavaScript-MD5) js 原生 md5 算法实现
+3. [yuanyuan95](https://blog.csdn.net/yuanyuan95/article/details/127811272) js 原生 hmac-sha256 算法实现 
