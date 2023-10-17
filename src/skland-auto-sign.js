@@ -23,7 +23,6 @@ const CODE_SUCCESS = 0
 /**
  * key
  */
-const LIST_KEY = 'cc.kayanouriko.skland.binding.list'
 const TOKEN_KEY = 'cc.kayanouriko.skland.token'
 
 // 目前来看, 签到 headers 关系不大, 直接写死.
@@ -143,7 +142,7 @@ async function fetchSign(cred, token, uid, gameId) {
     /**
      * 签名算法:
      * POST 请求
-     * 接口路径 + body参数json字符串 + 时间戳 + {platform,timestamp,dId, vName}json字符串
+     * 接口路径 + body参数json字符串 + 时间戳 + {platform,timestamp,dId,vName}json字符串
      * 将上面的字符串做 hmac sha256 加密, 密钥为 token. 然后加密后的字符串做 md5 即为 sign 参数.
      */
     const body = {
