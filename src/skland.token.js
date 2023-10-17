@@ -1,6 +1,6 @@
 /**
  * @name 森空岛小助手-token
- * @version v1.1.0
+ * @version v1.2.0
  * @description 用于获取签到所需的 token.
  * @author kayanouriko <kayanoruiko@icloud.com>
  * @homepage https://github.com/kayanouriko/quantumultx-skaland-auto-sign
@@ -19,7 +19,8 @@ function main() {
     if (url && url.indexOf(BASE_URL) > -1) {
         const token = url.split('=')[1]
         if (token && token.length > 0) {
-            const result = $prefs.setValueForKey(token, TOKEN_KEY)
+            // 获取到的 token 需要解码
+            const result = $prefs.setValueForKey(decodeURIComponent(token), TOKEN_KEY)
             // 发送通知
             if (result) {
                 $notify('森空岛小助手-token', '', '签到所需的 token 获取成功!')
