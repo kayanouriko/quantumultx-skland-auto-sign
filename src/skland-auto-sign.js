@@ -1,6 +1,6 @@
 /**
  * @name 森空岛小助手
- * @version v1.2.0
+ * @version v1.3.0
  * @description 每天定时自动签到森空岛获取明日方舟游戏奖励
  * @author kayanouriko <kayanoruiko@icloud.com>
  * @homepage https://github.com/kayanouriko/
@@ -8,25 +8,43 @@
  * @tanks https://github.com/sklandplus/sklandplus
  */
 
-/**
- * 请求URL
- */
-const AS_URL = 'https://as.hypergryph.com'
-const OAUTH_URL = '/user/oauth2/v2/grant'
+/** api */
+const api = {
+    hypergryph: {
+        root: 'https://as.hypergryph.com',
+        // 通过网络通行证登录凭证 token 获取 OAuth2 授权码
+        postUserOAuth2Grant: '/user/oauth2/v2/grant'
+    },
+    zonai: {
+        root: 'https://zonai.skland.com',
+        // 通过 OAuth2 授权码获取 api 身份凭证 cred
+        postUserAuthCred: '/api/v1/user/auth/generate_cred_by_code',
+        // 校验 cred 的有效性
+        getUserCheck: '/api/v1/user/check',
+        //====== 游戏-明日方舟 ======
+        // 获取账号游戏的绑定列表
+        getGamePlayerBinding: '/api/v1/game/player/binding',
+        // 游戏签到
+        postGameAttendance: '/api/v1/game/attendance'
+    }
+}
 
-const ZONAI_URL = 'https://zonai.skland.com'
-const CRED_URL = '/api/v1/user/auth/generate_cred_by_code'
-const BIND_URL = '/api/v1/game/player/binding'
-const SIGN_URL = '/api/v1/game/attendance'
+/** 存储 */
+const storage = {
+    out: {
+        token: 'cc.kayanouriko.skland.token'
+    },
+    in: {
+        cred: 'cc.kayanouriko.skland.in.cred',
+        token: 'cc.kayanouriko.skland.in.token'
+    }
+}
 
+/** 请求码 */
 const CODE_SUCCESS = 0
-/**
- * key
- */
-const TOKEN_KEY = 'cc.kayanouriko.skland.token'
 
 // 目前来看, 签到 headers 关系不大, 直接写死.
-const commonHeaders = {
+let commonHeaders = {
     'Content-Type': 'application/json; charset=utf-8',
     'User-Agent': 'Skland/1.0.1 (com.hypergryph.skland; build:100001014; Android 31; ) Okhttp/4.11.0',
     'Accept-Encoding': 'gzip',
@@ -34,9 +52,7 @@ const commonHeaders = {
     platform: '1'
 }
 
-/**
- * tiptool
- */
+/** 提示相关 */
 const msgText = {
     cookie: {
         empty: '请先打开该脚本配套的重写规则更新后打开森空岛获取签到所需参数, 再重新运行该脚本. 点击该通知将跳转获取森空岛获取参数的教程页面.',
@@ -49,36 +65,44 @@ const msgText = {
     }
 }
 
+/** 公共参数 */
+// 重写脚本获取的鹰角网络通行证 token
+const oauthToken = $prefs.valueForKey(storage.out.token)
+// 重写脚本获取到的配置
+let config = $prefs.valueForKey(storage.out.config)
+// 本地缓存的 cred
+let cred = $prefs.valueForKey(storage.in.cred)
+// 本地缓存的 token
+let token = $prefs.valueForKey(storage.in.token)
+
+//========= 程序入口 ==========
 main()
 
 async function main() {
     try {
-        // 先获取存储的 key
-        const oauthToken = $prefs.valueForKey(TOKEN_KEY)
+        // 先从重写脚本获取最基本的 token
         if (!oauthToken) {
             throw new Error(msgText.cookie.empty)
         }
-        // 前置流程
-        const oauthCode = await fetchOAuth2(oauthToken)
-        const { cred, token } = await fetchCred(oauthCode)
-        const bindingList = await fetchBindingList(cred)
-        // 开始签到
-        for (const user of bindingList) {
-            const { uid, channelMasterId, channelName, nickName } = user
-            const { awardName, count } = await fetchSign(cred, token, uid, channelMasterId)
-            //请求成功
-            $notify('森空岛小助手', '', `签到成功! Dr.${nickName}(${channelName}) 获得了奖励(${awardName}x${count}).`)
-            // 随机睡眠然后进行下一个签到
-            await randomSleepAsync()
+        // 如果没有缓存, 则请求
+        if (cred === undefined || token === undefined) {
+            await fetchCredAndToken()
+        } else {
+            // 检查 cred 和 token 是否过期
+            const isExpired = await fetchUserCheck()
+            if (isExpired) {
+                await fetchCredAndToken()
+            }
         }
+        await fetchGameArknights()
     } catch (error) {
         const message = error.message ?? error
         if (message === msgText.cookie.empty) {
-            $notify('森空岛小助手', '', message, {
+            notify(message, {
                 'open-url': 'https://github.com/kayanouriko/quantumultx-skland-auto-sign'
             })
         } else {
-            $notify('森空岛小助手', '', message)
+            notify(message)
         }
     } finally {
         // 所有逻辑执行完必须执行该函数
@@ -86,14 +110,26 @@ async function main() {
     }
 }
 
+//================== 授权相关 ===================
+
+// 获取 cred 和 token
+async function fetchCredAndToken() {
+    // 前置流程
+    const oauthCode = await fetchOAuth2()
+    ;({ cred, token } = await fetchCred(oauthCode))
+    // 缓存到本地
+    $prefs.setValueForKey(cred, storage.in.cred)
+    $prefs.setValueForKey(token, storage.in.token)
+}
+
 // 获取 OAuth2 授权码
-async function fetchOAuth2(token) {
+async function fetchOAuth2() {
     const body = {
         appCode: '4ca99fa6b56cc2ba',
-        token,
+        token: oauthToken,
         type: 0
     }
-    const { status, data } = await post(AS_URL + OAUTH_URL, commonHeaders, body)
+    const { status, data } = await post(api.hypergryph.root + api.hypergryph.postUserOAuth2Grant, commonHeaders, body)
     const { code } = data
     if (status === CODE_SUCCESS && code && code.length > 0) {
         return code
@@ -108,7 +144,7 @@ async function fetchCred(oauthCode) {
         code: oauthCode,
         kind: 1
     }
-    const { code, data } = await post(ZONAI_URL + CRED_URL, commonHeaders, body)
+    const { code, data } = await post(api.zonai.root + api.zonai.postUserAuthCred, commonHeaders, body)
     const { cred, token } = data
     if (code === CODE_SUCCESS && cred && cred.length > 0 && token && token.length > 0) {
         return { cred, token }
@@ -116,13 +152,37 @@ async function fetchCred(oauthCode) {
     throw new Error(msgText.cookie.cred)
 }
 
-// 获取绑定角色列表
-async function fetchBindingList(cred) {
+// 检测 cred 的有效性
+async function fetchUserCheck() {
     const headers = {
         ...commonHeaders,
         cred
     }
-    const { code, data } = await get(ZONAI_URL + BIND_URL, headers)
+    const { code } = await get(api.zonai.root + api.zonai.getUserCheck, headers)
+    return code !== CODE_SUCCESS
+}
+
+//================== 游戏明日方舟签到 ===================
+
+async function fetchGameArknights() {
+    // 获取绑定的游戏角色列表
+    const bindingList = await fetchBindingList()
+    // 开始签到
+    for (const user of bindingList) {
+        const { uid, channelMasterId, channelName, nickName } = user
+        const { awardName, count } = await fetchSign(uid, channelMasterId)
+        //请求成功
+        notify(`签到成功! 【${channelName}】Dr.${nickName} 获得了奖励(${awardName}x${count}).`)
+    }
+}
+
+// 获取绑定角色列表
+async function fetchBindingList() {
+    const headers = {
+        ...commonHeaders,
+        cred
+    }
+    const { code, data } = await get(api.zonai.root + api.zonai.getGamePlayerBinding, headers)
     const { list } = data
     if (code === CODE_SUCCESS && list && list.length > 0) {
         for (const item of list) {
@@ -136,45 +196,24 @@ async function fetchBindingList(cred) {
 }
 
 // 签到
-async function fetchSign(cred, token, uid, gameId) {
-    // 1.2.0 参数验证
-    // @see https://github.com/sklandplus/sklandplus
-    /**
-     * 签名算法:
-     * POST 请求
-     * 接口路径 + body参数json字符串 + 时间戳 + {platform,timestamp,dId,vName}json字符串
-     * 将上面的字符串做 hmac sha256 加密, 密钥为 token. 然后加密后的字符串做 md5 即为 sign 参数.
-     */
+async function fetchSign(uid, gameId) {
     const body = {
         uid,
         gameId
     }
-    // 适当减少几秒才不会报错设备时间不对.
-    const timestamp = Math.floor(Date.now() / 1000 - 1).toString()
-    // 只有 timestamp 是实时的, 而且必须为字符串! 其余的可以为空的字符串, 参数顺序也不能变.
-    const signHeaders = {
-        platform: '',
-        timestamp,
-        dId: '',
-        vName: ''
-    }
-    // JSON.stringify(signHeaders)
-    // stringify 方法可能会不按顺序转化, 当出现问题的时候, 需要手写 signHeaders 的字符串保证顺序按上面的拉排列
-    const value = SIGN_URL + JSON.stringify(body) + timestamp + JSON.stringify(signHeaders)
-    const sign = md5(hmac_sha256(value, token))
+    const signAndTimestamp = getSignAndTimestamp(api.zonai.postGameAttendance, body, token)
     // 覆盖原来的参数
     const headers = {
         ...commonHeaders,
         cred,
-        timestamp,
-        sign
+        ...signAndTimestamp
     }
-    const { code, message, data } = await post(ZONAI_URL + SIGN_URL, headers, body)
+    const { code, message, data } = await post(api.zonai.root + api.zonai.postGameAttendance, headers, body)
     if (code === CODE_SUCCESS) {
         const awardName = data['awards'][0]['resource']['name']
         const count = data['awards'][0]['count'] ?? 0
         if (!awardName) {
-            reject(msgText.sign.unknown)
+            throw new Error(msgText.sign.unknown)
         }
         return { awardName, count }
     }
@@ -219,20 +258,38 @@ function post(url, headers, body) {
     })
 }
 
-/** 随机睡眠 */
-async function randomSleepAsync() {
-    const s = random(2, 5)
-    await sleep(s)
+/** 通知 */
+function notify(message, options) {
+    $notify('森空岛小助手', '', message, options)
 }
 
-/** 休眠 n 秒 */
-function sleep(s) {
-    return new Promise(resolve => setTimeout(resolve, s * 1000))
-}
-
-/** 获取 [n, m] 区间的某个随机数 */
-function random(min, max) {
-    return Math.round(Math.random() * (max - min)) + min
+/** 构造 sign */
+function getSignAndTimestamp(path, body) {
+    // 1.2.0 参数验证
+    // @see https://github.com/sklandplus/sklandplus
+    /**
+     * 签名算法:
+     * POST 请求
+     * 接口路径 + body参数json字符串 + 时间戳 + {platform,timestamp,dId,vName}json字符串
+     * 将上面的字符串做 hmac sha256 加密, 密钥为 token. 然后加密后的字符串做 md5 即为 sign 参数.
+     */
+    // 适当减少几秒才不会报错设备时间不对.
+    const timestamp = Math.floor(Date.now() / 1000 - 1).toString()
+    // 只有 timestamp 是实时的, 而且必须为字符串! 其余的可以为空的字符串, 参数顺序也不能变.
+    const signHeaders = {
+        platform: '',
+        timestamp,
+        dId: '',
+        vName: ''
+    }
+    // JSON.stringify(signHeaders)
+    // stringify 方法可能会不按顺序转化, 当出现问题的时候, 需要手写 signHeaders 的字符串保证顺序按上面的拉排列
+    const value = path + JSON.stringify(body) + timestamp + JSON.stringify(signHeaders)
+    const sign = md5(hmac_sha256(value, token))
+    return {
+        sign,
+        timestamp
+    }
 }
 
 /**
