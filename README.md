@@ -1,7 +1,7 @@
 ![](./assets/logo.png)
 # 森空岛小助手
 
-![platform](https://img.shields.io/badge/platform-quantumultx-lightgrey.svg) ![](https://img.shields.io/badge/release-1.2.0-blue)
+![platform](https://img.shields.io/badge/platform-quantumultx-lightgrey.svg) ![](https://img.shields.io/badge/release-1.3.0-blue)
 
 一个 quantumultx 脚本, 主要用于森空岛游戏签到的自动运行.
 
