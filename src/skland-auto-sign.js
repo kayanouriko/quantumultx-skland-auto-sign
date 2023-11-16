@@ -1,38 +1,38 @@
 /**
  * @name 森空岛小助手
- * @version v1.3.0
+ * @version v1.4.0
  * @description 每天定时自动签到森空岛获取明日方舟游戏奖励
  * @author kayanouriko <kayanoruiko@icloud.com>
  * @homepage https://github.com/kayanouriko/
  * @license MIT
  * @tanks https://github.com/sklandplus/sklandplus
+ * @tanks https://github.com/enpitsuLin/skland-daily-attendance
  */
 
 /** api */
 const api = {
     hypergryph: {
-        root: 'https://as.hypergryph.com',
         // 通过网络通行证登录凭证 token 获取 OAuth2 授权码
-        postUserOAuth2Grant: '/user/oauth2/v2/grant'
+        postUserOAuth2Grant: 'https://as.hypergryph.com/user/oauth2/v2/grant'
     },
     zonai: {
-        root: 'https://zonai.skland.com',
         // 通过 OAuth2 授权码获取 api 身份凭证 cred
-        postUserAuthCred: '/api/v1/user/auth/generate_cred_by_code',
+        postUserAuthCred: 'https://zonai.skland.com/api/v1/user/auth/generate_cred_by_code',
         // 校验 cred 的有效性
-        getUserCheck: '/api/v1/user/check',
+        getUserCheck: 'https://zonai.skland.com/api/v1/user/check',
         //====== 游戏-明日方舟 ======
         // 获取账号游戏的绑定列表
-        getGamePlayerBinding: '/api/v1/game/player/binding',
+        getGamePlayerBinding: 'https://zonai.skland.com/api/v1/game/player/binding',
         // 游戏签到
-        postGameAttendance: '/api/v1/game/attendance'
+        postGameAttendance: 'https://zonai.skland.com/api/v1/game/attendance'
     }
 }
 
 /** 存储 */
 const storage = {
     out: {
-        token: 'cc.kayanouriko.skland.token'
+        token: 'cc.kayanouriko.skland.token',
+        headers: 'cc.kayanouriko.skland.headers'
     },
     in: {
         cred: 'cc.kayanouriko.skland.in.cred',
@@ -43,22 +43,18 @@ const storage = {
 /** 请求码 */
 const CODE_SUCCESS = 0
 
-// 目前来看, 签到 headers 关系不大, 直接写死.
+// 公用请求头, 部分参数从重写脚本中获取
 let commonHeaders = {
     'Content-Type': 'application/json; charset=utf-8',
-    'User-Agent': 'Skland/1.0.1 (com.hypergryph.skland; build:100001014; Android 31; ) Okhttp/4.11.0',
     'Accept-Encoding': 'gzip',
-    Connection: 'close',
-    platform: '1'
+    Connection: 'close'
 }
 
 /** 提示相关 */
 const msgText = {
     cookie: {
         empty: '请先打开该脚本配套的重写规则更新后打开森空岛获取签到所需参数, 再重新运行该脚本. 点击该通知将跳转获取森空岛获取参数的教程页面.',
-        oauth: '通过鹰角网络通行证 Token 获取鹰角网络通行证 OAuth2 授权码失败, 请重新运行脚本, 多次失败可能是接口有变动, 请等待脚本更新.',
-        cred: '通过鹰角网络通行证 OAuth2 授权码生成森空岛用户的登录凭证失败, 请重新运行脚本, 多次失败可能是接口有变动, 请等待脚本更新.',
-        bind: '通过鹰角网络通行证 Cred 获取森空岛绑定的游戏角色列表失败, 请重新运行脚本, 多次失败可能是接口有变动, 请等待脚本更新.'
+        error: '请重新运行脚本, 多次失败可能是接口有变动, 请等待脚本更新.'
     },
     sign: {
         unknown: '签到成功, 但是没有获取到奖励详情.'
@@ -68,8 +64,8 @@ const msgText = {
 /** 公共参数 */
 // 重写脚本获取的鹰角网络通行证 token
 const oauthToken = $prefs.valueForKey(storage.out.token)
-// 重写脚本获取到的配置
-let config = $prefs.valueForKey(storage.out.config)
+// 重写脚本获取到的 headers
+let outHeaders = $prefs.valueForKey(storage.out.headers)
 // 本地缓存的 cred
 let cred = $prefs.valueForKey(storage.in.cred)
 // 本地缓存的 token
@@ -80,20 +76,11 @@ main()
 
 async function main() {
     try {
-        // 先从重写脚本获取最基本的 token
-        if (!oauthToken) {
-            throw new Error(msgText.cookie.empty)
-        }
-        // 如果没有缓存, 则请求
-        if (cred === undefined || token === undefined) {
-            await fetchCredAndToken()
-        } else {
-            // 检查 cred 和 token 是否过期
-            const isExpired = await fetchUserCheck()
-            if (isExpired) {
-                await fetchCredAndToken()
-            }
-        }
+        // 检查重写脚本获取的参数并重构公用 headers
+        checkRewriteParams()
+        // cred 和 token 校验
+        await updateCredAndToken()
+        // 游戏签到
         await fetchGameArknights()
     } catch (error) {
         const message = error.message ?? error
@@ -110,7 +97,40 @@ async function main() {
     }
 }
 
+//================== 检查重写参数相关 ===================
+function checkRewriteParams() {
+    if (!oauthToken || !outHeaders) {
+        throw new Error(msgText.cookie.empty)
+    }
+    // 构建公用 headers
+    outHeaders = JSON.parse(outHeaders)
+    commonHeaders = {
+        ...commonHeaders,
+        platform: outHeaders.platform ?? '2',
+        'User-Agent':
+            outHeaders['User-Agent'] ??
+            'Skland/1.5.0 (com.hypergryph.skland; build:100500047; iOS 17.1.1) Alamofire/5.7.1',
+        dId: outHeaders.dId ?? '',
+        vName: outHeaders.vName ?? '1.5.0'
+    }
+}
+
 //================== 授权相关 ===================
+
+async function updateCredAndToken() {
+    // 如果没有缓存, 则请求
+    if (cred === undefined || token === undefined) {
+        await fetchCredAndToken()
+    } else {
+        // 检查 cred 和 token 是否过期
+        const isExpired = await fetchUserCheck()
+        if (isExpired) {
+            await fetchCredAndToken()
+        }
+    }
+    // 此时 cred 校验成功, 赋值到公用 headers 里面
+    commonHeaders.cred = cred
+}
 
 // 获取 cred 和 token
 async function fetchCredAndToken() {
@@ -129,13 +149,15 @@ async function fetchOAuth2() {
         token: oauthToken,
         type: 0
     }
-    const { status, data } = await post(api.hypergryph.root + api.hypergryph.postUserOAuth2Grant, commonHeaders, body)
-    const { code } = data
-    if (status === CODE_SUCCESS && code && code.length > 0) {
-        return code
+    const { status, data, message } = await post(api.hypergryph.postUserOAuth2Grant, commonHeaders, body)
+    if (status === CODE_SUCCESS && data) {
+        const { code } = data
+        if (code && code.length > 0) {
+            return code
+        }
     }
     // 抛出错误
-    throw new Error(msgText.cookie.oauth)
+    throw new Error('获取鹰角网络通行证账号登录凭证错误: ' + message ?? msgText.cookie.error)
 }
 
 // 获取登录凭证
@@ -144,28 +166,25 @@ async function fetchCred(oauthCode) {
         code: oauthCode,
         kind: 1
     }
-    const { code, data } = await post(api.zonai.root + api.zonai.postUserAuthCred, commonHeaders, body)
-    const { cred, token } = data
-    if (code === CODE_SUCCESS && cred && cred.length > 0 && token && token.length > 0) {
-        return { cred, token }
+    const { code, data, message } = await post(api.zonai.postUserAuthCred, commonHeaders, body)
+    if (code === CODE_SUCCESS && data) {
+        const { cred, token } = data
+        if (cred && cred.length > 0 && token && token.length > 0) {
+            return { cred, token }
+        }
     }
-    throw new Error(msgText.cookie.cred)
+    throw new Error('获取森空岛 API 身份凭证错误: ' + message ?? msgText.cookie.error)
 }
 
 // 检测 cred 的有效性
 async function fetchUserCheck() {
-    const headers = {
-        ...commonHeaders,
-        cred
-    }
-    const { code } = await get(api.zonai.root + api.zonai.getUserCheck, headers)
+    const { code } = await get(api.zonai.getUserCheck, commonHeaders)
     return code !== CODE_SUCCESS
 }
 
 //================== 游戏明日方舟签到 ===================
 
 async function fetchGameArknights() {
-    // 获取绑定的游戏角色列表
     const bindingList = await fetchBindingList()
     // 开始签到
     for (const user of bindingList) {
@@ -178,21 +197,24 @@ async function fetchGameArknights() {
 
 // 获取绑定角色列表
 async function fetchBindingList() {
+    // 获取用户信息相关的操作就算是 get 请求也需要签名
     const headers = {
         ...commonHeaders,
-        cred
+        ...getSignAndTimestamp(api.zonai.getGamePlayerBinding)
     }
-    const { code, data } = await get(api.zonai.root + api.zonai.getGamePlayerBinding, headers)
-    const { list } = data
-    if (code === CODE_SUCCESS && list && list.length > 0) {
-        for (const item of list) {
-            const { appCode, bindingList } = item
-            if (appCode !== 'arknights') continue
-            // 获取到绑定的游戏角色列表
-            return bindingList
+    const { code, data, message } = await get(api.zonai.getGamePlayerBinding, headers)
+    if (code === CODE_SUCCESS && data) {
+        const { list } = data
+        if (list && list.length > 0) {
+            for (const item of list) {
+                const { appCode, bindingList } = item
+                if (appCode !== 'arknights') continue
+                // 获取到绑定的游戏角色列表
+                return bindingList
+            }
         }
     }
-    throw new Error(msgText.cookie.bind)
+    throw new Error('获取森空岛绑定明日方舟账号列表错误: ' + message ?? msgText.cookie.error)
 }
 
 // 签到
@@ -201,23 +223,21 @@ async function fetchSign(uid, gameId) {
         uid,
         gameId
     }
-    const signAndTimestamp = getSignAndTimestamp(api.zonai.postGameAttendance, body, token)
     // 覆盖原来的参数
     const headers = {
         ...commonHeaders,
-        cred,
-        ...signAndTimestamp
+        ...getSignAndTimestamp(api.zonai.postGameAttendance, body)
     }
-    const { code, message, data } = await post(api.zonai.root + api.zonai.postGameAttendance, headers, body)
+    const { code, message, data } = await post(api.zonai.postGameAttendance, headers, body)
     if (code === CODE_SUCCESS) {
         const awardName = data['awards'][0]['resource']['name']
         const count = data['awards'][0]['count'] ?? 0
         if (!awardName) {
-            throw new Error(msgText.sign.unknown)
+            throw new Error('游戏签到错误: ' + msgText.sign.unknown)
         }
         return { awardName, count }
     }
-    throw new Error(message)
+    throw new Error('游戏签到错误: ' + message ?? msgText.cookie.error)
 }
 
 //================== 辅助函数 ===================
@@ -264,9 +284,11 @@ function notify(message, options) {
 }
 
 /** 构造 sign */
-function getSignAndTimestamp(path, body) {
+function getSignAndTimestamp(url, body) {
     // 1.2.0 参数验证
     // @see https://github.com/sklandplus/sklandplus
+    // 1.4.0 整合 get 方法的签名方式
+    // @see https://github.com/enpitsuLin/skland-daily-attendance
     /**
      * 签名算法:
      * POST 请求
@@ -274,17 +296,21 @@ function getSignAndTimestamp(path, body) {
      * 将上面的字符串做 hmac sha256 加密, 密钥为 token. 然后加密后的字符串做 md5 即为 sign 参数.
      */
     // 适当减少几秒才不会报错设备时间不对.
-    const timestamp = Math.floor(Date.now() / 1000 - 1).toString()
+    const timestamp = Math.floor(Date.now() / 1000 - 2).toString()
     // 只有 timestamp 是实时的, 而且必须为字符串! 其余的可以为空的字符串, 参数顺序也不能变.
+    // 其余参数从公用 headers 里面获取
     const signHeaders = {
-        platform: '',
+        platform: commonHeaders.platform,
         timestamp,
-        dId: '',
-        vName: ''
+        dId: commonHeaders.dId,
+        vName: commonHeaders.vName
     }
+    const { pathname, searchParams } = new URL(url)
     // JSON.stringify(signHeaders)
     // stringify 方法可能会不按顺序转化, 当出现问题的时候, 需要手写 signHeaders 的字符串保证顺序按上面的拉排列
-    const value = path + JSON.stringify(body) + timestamp + JSON.stringify(signHeaders)
+    const value = `${pathname}${searchParams.toString()}${
+        !!body ? JSON.stringify(body) : ''
+    }${timestamp}${JSON.stringify(signHeaders)}`
     const sign = md5(hmac_sha256(value, token))
     return {
         sign,
